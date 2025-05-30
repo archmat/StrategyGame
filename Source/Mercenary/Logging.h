@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -122,4 +122,11 @@ namespace OutputDeviceColor
 
 
 #define DEFAULT_SCR_LOG_TIME	10.f
+
+
+template<typename EnumType>
+static FString EnumToFString(EnumType eType)
+{
+	return StaticEnum<EnumType>()->GetValueAsString(eType);
+}
 

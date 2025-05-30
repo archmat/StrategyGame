@@ -29,6 +29,7 @@ struct FEdgeInfo
 	EGridDirection EdgeDirection;
 };
 
+
 USTRUCT(BlueprintType)
 struct FMoveInfo
 {
@@ -80,17 +81,24 @@ protected:
 
 
 private:
-	// Find the Grid Cell that make up the boundary of the movable area
-	void FindGridCellIdsForMoveArea();
+	// Find the Grid Cell that make up the boundary of the movable area.
+	void FindGridCellForMoveArea();
 
-	// Filter the Grid Corner Ids
-	void FilterdGridCornerIdsAndDrawBorder();
+	// Configure the Edge Info for drawing the Border.
+	void MakeBorderEdgeInfos();
+
+	// Filter the Grid Corner Ids And Draw Border.
+	void FilterdGridCornerAndDrawBorder();
 
 	// Add the Grid Cells to Movable Area (By Battle Slot)
 	void AddGridCellToMovableAreaBySlot(const int32 SrcGridCellId);
 
 	// Add the edges Info of the grid cell for make border points(Grid Corner Ids)
-	void AddGridCellEdgeForBorderPoints(const int32 GridCellId, const EGridDirection eDirection);
+	void AddGridCellEdgeForBorderEdgeInfos(const int32 CoreGridCellId, const EGridDirection eDirection);
+
+	const FEdgeInfo* FindEdgeInfo(const int32 StartGridCornerId) const;
+
+	const FEdgeInfo* FindSecondEdgeInfo(const int32 StartGridCornerId) const;
 
 
 protected:
@@ -110,10 +118,6 @@ protected:
 	// 이동 영역의 Grid Cell Ids.
 	UPROPERTY(BlueprintReadOnly)
 	TSet<int32> MovableAreaSet;
-
-	// 이동 영역의 Border 에 해당하는 Grid Cell Ids.
-	UPROPERTY(BlueprintReadOnly)
-	TSet<int32> BorderAreaSet;
 
 	// 중첩된 Edge 의 시작 Grid Corner ID
 	UPROPERTY(BlueprintReadOnly)

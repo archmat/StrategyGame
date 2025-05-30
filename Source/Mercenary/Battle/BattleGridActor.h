@@ -174,8 +174,8 @@ public:
 	UFUNCTION(BlueprintPure, Category = "BattleGrid")
 	FVector2D GetGrid2DLocByGridCellId(const int32 GridCellId) const;
 
-	// Returns the 2D coordinates of the corresponding grid cell.
-	// Start Coordinates is 0, 0, Next is 0, 1
+	// Returns the 2D coordinates(Row, Col) of the corresponding grid cell.
+	// Most Left Top Coordinates is 0, 0, Next is 0, 1
 	UFUNCTION(BlueprintPure, Category = "BattleGrid")
 	FIntPoint GetGridCoordinateByGridCellId(const int32 GridCellId) const;
 
@@ -188,6 +188,7 @@ public:
 		return GridCells.IsValidIndex(GridCellId);
 	}
 
+	// Move Cost of Grid Cell
 	float GetGridCellMoveCost(const int32 GridCellId) const
 	{
 		if (GridCells.IsValidIndex(GridCellId))
@@ -197,6 +198,9 @@ public:
 
 		return DEFAULT_GRID_CELL_MOVE_COST;
 	}
+
+	// Move Cost of Grid Slot
+	float GetGridSlotMoveCost(const int32 SlotCoreGridCellId, const uint8 BattleSlotSquareSize) const;
 
 	// Whether a BattleUnit can be placed in that grid cell
 	bool IsBattleUnitPlaceable(const int32 SlotCoreGridCellId, const uint8 BattleSlotSquareSize) const;

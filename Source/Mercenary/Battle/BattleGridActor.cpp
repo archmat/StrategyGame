@@ -87,7 +87,6 @@ void ABattleGridActor::UpdateGridObstacles(const TArray<int32>& ObstacleGridCell
 	}
 }
 
-// BP_Grid::GetGridNodesWorldCoordinates
 FVector ABattleGridActor::GetGridCornerWorldLocation(const int32 GridCornerId) const
 {
 	if (GridCornerId < 0 || GridCornerTotalSize <= GridCornerId)
@@ -219,7 +218,6 @@ FVector2D ABattleGridActor::GetGrid2DLocByGridCellId(const int32 GridCellId) con
 	return GridCellCoordinates;
 }
 
-// BP_Grid::GetGridCoordinatesByCellNum
 // 해당 인덱스의 그리드 상의 행열 반환
 FIntPoint ABattleGridActor::GetGridCoordinateByGridCellId(const int32 GridCellId) const
 {
@@ -278,6 +276,29 @@ int32 ABattleGridActor::GetArroundGridCellId(const int32 currGridCellId, const E
 	}
 
 	return ArroundGridCellId;
+}
+
+float ABattleGridActor::GetGridSlotMoveCost(const int32 SlotCoreGridCellId, const uint8 BattleSlotSquareSize) const
+{
+	if (BattleSlotSquareSize == 0)
+	{
+		return DEFAULT_GRID_CELL_MOVE_COST;
+	}
+
+	float AverageMoveCost = 0.f;
+
+	for (int32 i = 0; i < BattleSlotSquareSize; ++i)
+	{
+		for (int32 j = 0; j < BattleSlotSquareSize; ++j)
+		{
+			int32 GridCellId = SlotCoreGridCellId + (i * GridCellSize.Y) + j;
+			AverageMoveCost += GetGridCellMoveCost(GridCellId);
+		}
+	}
+
+	AverageMoveCost /= (BattleSlotSquareSize * BattleSlotSquareSize);
+
+	return AverageMoveCost;
 }
 
 bool ABattleGridActor::IsBattleUnitPlaceable(const int32 SlotCoreGridCellId, const uint8 BattleSlotSquareSize) const
