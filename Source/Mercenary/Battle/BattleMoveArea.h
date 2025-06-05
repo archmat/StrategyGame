@@ -19,6 +19,20 @@ struct FEdgeInfo
 {
 	GENERATED_BODY()
 
+	FEdgeInfo()
+	{
+		StartGridCornerId = -1;
+		EndGridCornerId = -1;
+		EdgeDirection = -1;
+	}
+
+	FEdgeInfo(const int32 startCornerId, const int32 endCornerId, const int32 dirType)
+		: StartGridCornerId(startCornerId)
+		, EndGridCornerId(endCornerId)
+		, EdgeDirection(dirType)
+	{
+	}
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	int32 StartGridCornerId;
 
@@ -26,7 +40,7 @@ struct FEdgeInfo
 	int32 EndGridCornerId;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	EGridDirection EdgeDirection;
+	int32 EdgeDirection;
 };
 
 
@@ -40,7 +54,7 @@ struct FMoveInfo
 };
 
 
-UCLASS()
+UCLASS(BlueprintType, Blueprintable)
 class MERCENARY_API ABattleMoveArea : public AActor
 {
 	GENERATED_BODY()
@@ -87,18 +101,21 @@ private:
 	// Configure the Edge Info for drawing the Border.
 	void MakeBorderEdgeInfos();
 
-	// Filter the Grid Corner Ids And Draw Border.
-	void FilterdGridCornerAndDrawBorder();
+	// Drawing a Border Line based on Edge info
+	void DrawBorderByEdgeInfos();
 
 	// Add the Grid Cells to Movable Area (By Battle Slot)
-	void AddGridCellToMovableAreaBySlot(const int32 SrcGridCellId);
+	void AddGridCellToMovableAreaBySlot(const int32 TargetGridCellId);
+
+	// Add the Grid Cell to Border Area (By Battle Slot)
+	void AddGridCellToBorderAreaBySlot(const int32 TargetGridCellId);
 
 	// Add the edges Info of the grid cell for make border points(Grid Corner Ids)
-	void AddGridCellEdgeForBorderEdgeInfos(const int32 CoreGridCellId, const EGridDirection eDirection);
+	void AddBorderEdgeInfo(const int32 CoreGridCellId, const EGridDirection eDirection);
 
-	const FEdgeInfo* FindEdgeInfo(const int32 StartGridCornerId) const;
+	const int32 FindBorderEdgeInfo(const int32 StartGridCornerId) const;
 
-	const FEdgeInfo* FindSecondEdgeInfo(const int32 StartGridCornerId) const;
+	const int32 FindSecondBorderEdgeInfo(const int32 StartGridCornerId) const;
 
 
 protected:
@@ -111,17 +128,25 @@ protected:
 	UPROPERTY(BlueprintReadOnly)
 	float MoveDistance;
 
-	// Move Area 를 구성하는 모든 Border Edge
+	// 이동 가능한 Grid Cell Ids (Per Cell)
 	UPROPERTY(BlueprintReadOnly)
-	TArray<FEdgeInfo> BorderEdgeInfos;
+	TSet<int32> MovableGridCellSet;
 
-	// 이동 영역의 Grid Cell Ids.
+	// 이동 가능 영역 (Per Slot)
 	UPROPERTY(BlueprintReadOnly)
 	TSet<int32> MovableAreaSet;
 
+	// 이동 가능 영역중에서 Border 에 해당하는 영역
+	UPROPERTY(BlueprintReadOnly)
+	TSet<int32> BorderAreaSet;
+
+	// Move Area 를 구성하는 모든 Border Edge. For Draw Border Line
+	UPROPERTY(BlueprintReadOnly)
+	TArray<FEdgeInfo> BorderEdgeInfos;
+
 	// 중첩된 Edge 의 시작 Grid Corner ID
 	UPROPERTY(BlueprintReadOnly)
-	TArray<int32> DuplicateGridCornerIds;
+	TArray<int32> DuplicateStartGridCornerIds;
 
 
 private:

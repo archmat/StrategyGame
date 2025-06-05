@@ -98,7 +98,7 @@ void ABattleMoveArea::DrawMoveArea(const FVector WorldStartLoc, const float fMov
 	{
 		double StartTime = FPlatformTime::Seconds();
 
-		// Clear Previous Movable Area
+		// Clear Previous Movable Border Line
 		ResetPathTracer();
 
 		// Find the Grid Cell that make up the boundary of the movable area
@@ -108,7 +108,7 @@ void ABattleMoveArea::DrawMoveArea(const FVector WorldStartLoc, const float fMov
 		MakeBorderEdgeInfos();
 
 		// 
-		FilterdGridCornerAndDrawBorder();
+		DrawBorderByEdgeInfos();
 
 		double EndTime = FPlatformTime::Seconds();
 		double ElapsedTime = EndTime - StartTime;
@@ -132,7 +132,7 @@ void ABattleMoveArea::FindGridCellForMoveArea()
 		return;
 	}
 
-	//
+	// 시작	Grid Cell Id 가 배치 가능 여부를 체크하고 MovableAreaSet 을 초기화 한다.
 	{
 		if (false == BattleGridActor->IsBattleUnitPlaceable(StartGridCellId, BattleSlotSquareSize))
 		{
@@ -140,37 +140,39 @@ void ABattleMoveArea::FindGridCellForMoveArea()
 			return;
 		}
 
+		// Clear Previous Movable Area
+		MovableGridCellSet.Empty();
 		MovableAreaSet.Empty();
-		AddGridCellToMovableAreaBySlot(StartGridCellId);
-	}
+		BorderAreaSet.Empty();
 
-	// Setup For Find Move Area
-	BorderEdgeInfos.Empty();
-	DuplicateGridCornerIds.Empty();
+		BorderEdgeInfos.Empty();
+		DuplicateStartGridCornerIds.Empty();
+	}
 
 	// Setup First Searching, Visited Info
 	TArray<FMoveInfo> SearchingGirdCellIds;
 	TArray<bool> AllVisitedFlags;
 	{
-		// Start Grid Cell 을 첫번째 탐색해야할 Grid Cell 로 설정.
-		SearchingGirdCellIds.Emplace(FMoveInfo(StartGridCellId, MoveDistance));
-	
-		// 전체 Grid Cell 방문여부를 새로 초기화 하고 첫번째 방문한 Grid Cell 의 방문 여부 설정.
+		// 전체 Grid Cell 방문여부 를 체크하기 위한 배열 초기화.
 		int32 TotalGridCellSize = BattleGridActor->GetGridCellTotalSize();
 
 		AllVisitedFlags.SetNumUninitialized(TotalGridCellSize);
 		FMemory::Memzero((uint8*)AllVisitedFlags.GetData(), TotalGridCellSize * sizeof(bool));
 
-		AllVisitedFlags[StartGridCellId] = true;
 	}
 
+	// Set Start Grid Cell 을 이동 영역에 추가. 방문 여부 설정. 탐색 해야할 영역에 추가.
+	AddGridCellToMovableAreaBySlot(StartGridCellId);
+	AllVisitedFlags[StartGridCellId] = true;
+	SearchingGirdCellIds.Emplace(FMoveInfo(StartGridCellId, MoveDistance));
+
+
 	/**
-	 * Cell 단위 이동 이라면 이곳에서 이동 범위의 라인을 알 수 있지만 Slot 단위 에선 알 수 없음.
-	 *
-	 * 그래서 해당 Cell 의 Slot 이 배치 가능 하면 Slot 을 구성하는 Cell 을 이동 영역으로 추가.
-	 * 모든 이동 영역을 찾으면 Border 에 해당하는 Cell 만 필터링 해서 이동 범위 라인 구성.
+	 * Cell 단위 이동 이라면 이곳에서 이동 범위의 경계를 알 수 있지만 Slot 단위 에선 알 수 없음.
+	 * Cell 의 Slot 이 배치 가능 하면 Slot 을 구성하는 Cell 을 이동 영역으로 추가.
+	 * 경계라고 판단되는 Slot 은 경계 영역으로 추가
+	 * 모든 이동 영역을 찾으면 경계 영역중에서 경계에 해당하는 Cell 만 필터링 해서 이동 범위 라인 구성.
 	 */
-	// Find Move Area
 	while (SearchingGirdCellIds.Num() > 0)
 	{
 		int32 CurrGridCellId = SearchingGirdCellIds[0].GridCellId;
@@ -180,30 +182,18 @@ void ABattleMoveArea::FindGridCellForMoveArea()
 		{
 			int32 ArroundGridCellId = BattleGridActor->GetArroundGridCellId(CurrGridCellId, eDirection);
 			
-			// Out of Map Area 체크
-			if (false == AllVisitedFlags.IsValidIndex(ArroundGridCellId))
-			{
-				/**
-				 * Out of Map Area 에 의한 Border Line. 갈수 없는 Grid Cell 이기에 이동 영역 에 추가 없음.
-				 */
-				continue;
-			}
-
 			// 방문 여부 체크
+			// 이동 영역에 이미 추가된 곳이므로 경계 영역으로 추가할 필요 없음.
 			if (AllVisitedFlags[ArroundGridCellId])
 			{
 				continue;
 			}
 
-			// Move Cost 체크
-			// #todo : Move Cost 체크를 Slot 단위로 한다면 GetGridSlotMoveCost 사용.
-			float ArroundMoveCost = BattleGridActor->GetGridCellMoveCost(ArroundGridCellId);
-
-			if (CurrMovePoint < ArroundMoveCost)
+			// Out of Map Area 체크.
+			// 정상적일 경우 유효한 Grid Cell Id 가 아니라면 Map 영역 밖에 있는 것.
+			if (false == AllVisitedFlags.IsValidIndex(ArroundGridCellId))
 			{
-				/**
-				 * Move Cost 에 의한 Border Line.
-				 */
+				AddGridCellToBorderAreaBySlot(CurrGridCellId);
 				continue;
 			}
 
@@ -211,32 +201,41 @@ void ABattleMoveArea::FindGridCellForMoveArea()
 			// #todo : 캐릭터 특성에 따라 아군, 적군 통과 가능한 경우 Passable 함수를 통해 체크.
 			if (false == BattleGridActor->IsBattleUnitPlaceable(ArroundGridCellId, BattleSlotSquareSize))
 			{
-				/**
-				 * 배치 불가에 의한 Border Line.
-				 */
+				// 배치 불가에 의한 Border Line.
+				AddGridCellToBorderAreaBySlot(CurrGridCellId);
+				continue;
+			}
+
+			// Move Cost 체크
+			// #todo : Move Cost 체크를 Slot 단위로 한다면 GetGridSlotMoveCost 사용.
+			float ArroundMoveCost = BattleGridActor->GetGridCellMoveCost(ArroundGridCellId);
+			//float ArroundMoveCost = BattleGridActor->GetGridSlotMoveCost(ArroundGridCellId, BattleSlotSquareSize);
+			if (CurrMovePoint < ArroundMoveCost)
+			{
+				// Move Cost 에 의한 Border Line.
+				AddGridCellToBorderAreaBySlot(CurrGridCellId);
 				continue;
 			}
 
 			// 이동 영역에 추가
 			AddGridCellToMovableAreaBySlot(ArroundGridCellId);
-
 			AllVisitedFlags[ArroundGridCellId] = true;
-
 			SearchingGirdCellIds.Emplace(FMoveInfo(ArroundGridCellId, CurrMovePoint - ArroundMoveCost));
 		}
 
-		SearchingGirdCellIds.RemoveAtSwap(0);
+		SearchingGirdCellIds.RemoveAtSwap(0, 1, false);
 	}
 }
 
 /**
  * Border Line 을 그리기 위해 필요한 데이터 구성.
+ * 경계 영역 Set 를 순회 하면서 Cell 의 주변 방향 Cell 이 이동 영역 set 에 없다면 BorderEdgeInfos 에 추가
  */
 void ABattleMoveArea::MakeBorderEdgeInfos()
 {
 	BorderEdgeInfos.Empty();
 
-	for (int32 CurrGridCellId : MovableAreaSet)
+	for (int32 CurrGridCellId : BorderAreaSet)
 	{
 		for (EGridDirection eDirection : TEnumRange<EGridDirection>())
 		{
@@ -245,52 +244,106 @@ void ABattleMoveArea::MakeBorderEdgeInfos()
 			// Map End Line
 			if (ArroundGridCellId == -1)
 			{
-				AddGridCellEdgeForBorderEdgeInfos(CurrGridCellId, eDirection);
+				AddBorderEdgeInfo(CurrGridCellId, eDirection);
 				continue;
 			}
 
 			// Movable Border Line
 			if (MovableAreaSet.Find(ArroundGridCellId) == nullptr)
 			{
-				AddGridCellEdgeForBorderEdgeInfos(CurrGridCellId, eDirection);
+				AddBorderEdgeInfo(CurrGridCellId, eDirection);
 				continue;
 			}
 		}
 	}
 }
 
-// BP_MoveArea::Filtered Points and Draw Border
-void ABattleMoveArea::FilterdGridCornerAndDrawBorder()
+void ABattleMoveArea::DrawBorderByEdgeInfos()
 {
-	/**
-	 * 점을 순차적으로 배치하려면 필터링해야 합니다.
-	 * 테두리에는 고립된 영역, 즉 주 경계 내부의 "구멍"이 포함될 수 있습니다,
-	 * 이러한 연결되어 있지 않는 각각의 "구멍"에 대해 고유한 획을 만들어야 하며 이는 추가적인 PathTracer 를 사용합니다.
-	 */
+	TArray<int32> GridCornerIdsForDraw;
+	int32 NextGridCornerId;
+	int32 CurrGridCornerId;
+	int32 LastDirection;
 
-	 //TArray<int32> GridCornerIds;
+	int32 CurrentIndex;
 
-	 //// while (edge infos)
-	 //{
-	 //	int32 LastDirection = -1;
+	while (BorderEdgeInfos.Num() > 0)
+	{
+		GridCornerIdsForDraw.Empty();
 
-	 //	int32 NextGridCornerId;
+		NextGridCornerId = BorderEdgeInfos[0].StartGridCornerId;
+		LastDirection = -1;
 
-	 //	int32 LastGridCornerId;
+		int32 EdgeInfoCount = BorderEdgeInfos.Num();
 
-	 //	int32 CurrStartGridCornerId = NextGridCornerId;
-	 //}
+		/**
+		 * 1. BorderEdgeInfos 순회하면서 CurrGridCornerId 찾기
+		 *	1.1 찾으면 중복인지 체크
+		 *		1.1.1 중복 체크용 컨테이너에서 해당 중복 제거
+		 *		1.1.2 CurrGridCornerId 의 방향에서 우선시 되는 방향 선택 (시계방향 우선)
+		 *		1.1.3 다른게 우선이면 BorderEdgeInfos 에서 다른 GridCornerId 찾아서 Current 로 설정.
+		 * 
+		 *	1.2 CurrGridCornerId 를 GridCornerIdsForDraw 에 추가
+		 *	1.3 BorderEdgeInfos 에서 CurrGridCornerId 제거
+		 * 
+		 * 2. 순회 종료시 GridCornerIdsForDraw 로 Border Line 그리기
+		 */
 
+		// 1. Make GridCornerIdsForDraw
+		for (int32 i = 0; i < EdgeInfoCount; ++i)
+		{
+			CurrGridCornerId = NextGridCornerId;
 
-	 //// Draw the current edge line among the edge lines that make up the move area.
-	 //DrawBorderLine(GridCornerIds);
+			CurrentIndex = FindBorderEdgeInfo(CurrGridCornerId);
+			if (CurrentIndex == INDEX_NONE)
+			{
+				break;
+			}
+
+			// Step 1. 중첩된 EdgeInfo 일때 LastDirection 과 NextDirection 이 같으면 두번째 EdgeInfo 를 Current 로 변경
+			int32 DuplicateIndex = DuplicateStartGridCornerIds.Find(CurrGridCornerId);
+			if (DuplicateIndex != INDEX_NONE)
+			{
+				// Step 1.1
+				DuplicateStartGridCornerIds.RemoveAtSwap(DuplicateIndex, 1, false);
+
+				// Step 1.2
+				const FEdgeInfo& CurrEgetInfo = BorderEdgeInfos[CurrentIndex];
+				int32 CurrDirection = CurrEgetInfo.EdgeDirection;
+				int32 NextDirection = CurrDirection == 3 ? 0 : CurrDirection + 1;	// ClockWise Left > Top > Right > Bottom > Left
+
+				if (LastDirection == NextDirection)
+				{
+					CurrentIndex = FindSecondBorderEdgeInfo(CurrGridCornerId);
+				}
+			}
+
+			// Step 2.
+			{
+				const FEdgeInfo& CurrEgetInfo = BorderEdgeInfos[CurrentIndex];
+
+				NextGridCornerId = CurrEgetInfo.EndGridCornerId;
+				LastDirection = CurrEgetInfo.EdgeDirection;
+
+				GridCornerIdsForDraw.Emplace(CurrGridCornerId);
+			}
+
+			// Step 3.
+			{
+				BorderEdgeInfos.RemoveAtSwap(CurrentIndex, 1, false);
+			}
+		}
+
+		// 2. Draw the current edge line among the edge lines that make up the move area.
+		DrawBorderLine(GridCornerIdsForDraw);
+	}
 }
 
 /**
- * 이 함수는 SrcGridCellId 가 Slot 단위로 Map 의 영역 안에 있는지를 체크하지 않음.
- * 그러므로 호출 하기 전에 Slot 단위로 Map 의 영역 안에 있다는 것이 보장 되어야 함.
+ * Slot 단위로 Map 의 영역 안에 있는지 체크 없음.
+ * 호출 이전에 Slot 단위로 Map 의 영역 안에 있다는 것이 보장 되어야 함.
  */
-void ABattleMoveArea::AddGridCellToMovableAreaBySlot(const int32 SrcGridCellId)
+void ABattleMoveArea::AddGridCellToMovableAreaBySlot(const int32 TargetGridCellId)
 {
 	int32 currGridCellId;
 
@@ -298,9 +351,24 @@ void ABattleMoveArea::AddGridCellToMovableAreaBySlot(const int32 SrcGridCellId)
 	{
 		for (int j = 0; j < BattleSlotSquareSize; ++j)
 		{
-			currGridCellId = SrcGridCellId + (i * ColumnSizeOfGridActor) + j;
-
+			currGridCellId = TargetGridCellId + (i * ColumnSizeOfGridActor) + j;
 			MovableAreaSet.Emplace(currGridCellId);
+		}
+	}
+
+	MovableGridCellSet.Emplace(TargetGridCellId);
+}
+
+void ABattleMoveArea::AddGridCellToBorderAreaBySlot(const int32 TargetGridCellId)
+{
+	int32 currGridCellId;
+
+	for (int i = 0; i < BattleSlotSquareSize; ++i)
+	{
+		for (int j = 0; j < BattleSlotSquareSize; ++j)
+		{
+			currGridCellId = TargetGridCellId + (i * ColumnSizeOfGridActor) + j;
+			BorderAreaSet.Emplace(currGridCellId);
 		}
 	}
 }
@@ -309,7 +377,7 @@ void ABattleMoveArea::AddGridCellToMovableAreaBySlot(const int32 SrcGridCellId)
  * 이동 가능 영역의 Border Line 을 그리기 위해 Grid Corner Id 를 BorderEdgeInfos 에 추가.
  * CoreGridCellId 를 기준으로 하는 Slot 에서 방향에 해당하는 Grid Corner Id 를 구해서 추가함.
  */
-void ABattleMoveArea::AddGridCellEdgeForBorderEdgeInfos(const int32 CoreGridCellId, const EGridDirection eDirection)
+void ABattleMoveArea::AddBorderEdgeInfo(const int32 CoreGridCellId, const EGridDirection eDirection)
 {
 	if ((eDirection < EGridDirection::Count) == false)
 	{
@@ -323,11 +391,11 @@ void ABattleMoveArea::AddGridCellEdgeForBorderEdgeInfos(const int32 CoreGridCell
 		return;
 	}
 
-	FIntPoint Coord = BattleGridActor->GetGridCoordinateByGridCellId(CoreGridCellId);
+	FIntPoint GridCoord = BattleGridActor->GetGridCoordinateByGridCellId(CoreGridCellId);
 
 	/**
-	 * Grid Corner 와 GridCellId 와의 상관 관계
-	 * ColumnSizeOfGridActor 가 3 이면 다음과 같음.
+	 * Grid Corner(테두리) 와 GridCellId(테두리 안쪽) 와의 상관 관계
+	 * Grid Map 가로측 크기(ColumnSizeOfGridActor)가 3 이면 다음과 같음.
 	 * 
 	 *							Coord.X
 	 * 0 --- 1 --- 2 --- 3
@@ -339,13 +407,14 @@ void ABattleMoveArea::AddGridCellEdgeForBorderEdgeInfos(const int32 CoreGridCell
 	 * 12 -- 13 -- 14 -- 15
 	 * 
 	 */
-	int32 LeftTopCornerId = CoreGridCellId + Coord.X;
+	int32 LeftTopCornerId = CoreGridCellId + GridCoord.X;
 	int32 RightTopCornerId = LeftTopCornerId + 1;
 	int32 LeftBottomCornerId = RightTopCornerId + ColumnSizeOfGridActor;
 	int32 RightBottomCornerId = LeftBottomCornerId + 1;
 
 	int32 StartCornerId = -1;
 	int32 EndCornerId = -1;
+	int32 EdgeDirection = -1;
 
 	switch (eDirection)
 	{
@@ -353,47 +422,59 @@ void ABattleMoveArea::AddGridCellEdgeForBorderEdgeInfos(const int32 CoreGridCell
 		{
 			StartCornerId = LeftBottomCornerId;
 			EndCornerId = LeftTopCornerId;
+			EdgeDirection = LEFT_DIRECTION;
 			break;
 		}
 		case EGridDirection::Top:
 		{
 			StartCornerId = LeftTopCornerId;
 			EndCornerId = RightTopCornerId;
+			EdgeDirection = TOP_DIRECTION;
 			break;
 		}
 		case EGridDirection::Right:
 		{
 			StartCornerId = RightTopCornerId;
 			EndCornerId = RightBottomCornerId;
+			EdgeDirection = RIGHT_DIRECTION;
 			break;
 		}
 		case EGridDirection::Bottom:
 		{
 			StartCornerId = RightBottomCornerId;
 			EndCornerId = LeftBottomCornerId;
+			EdgeDirection = BOTTOM_DIRECTION;
 			break;
 		}
 	}
 
+	FEdgeInfo edgeInfo = FEdgeInfo(StartCornerId, EndCornerId, EdgeDirection);
 
+	const int32 FindIndex = FindBorderEdgeInfo(StartCornerId);
+	if (FindIndex != INDEX_NONE)
+	{
+		// FEdgeInfo 를 추가 하기전에 StartGridCornerId 를 사용하는 다른 FEdgeInfo 가 이미 있다면 DuplicateStartGridCornerIds 에 추가
+		DuplicateStartGridCornerIds.Emplace(StartCornerId);
+	}
 
+	BorderEdgeInfos.Emplace(edgeInfo);
 }
 
-const FEdgeInfo* ABattleMoveArea::FindEdgeInfo(const int32 StartGridCornerId) const
+const int32 ABattleMoveArea::FindBorderEdgeInfo(const int32 StartGridCornerId) const
 {
-	const FEdgeInfo* FindData = BorderEdgeInfos.FindByPredicate([StartGridCornerId](const FEdgeInfo& EdgeInfo)
+	int32 FoundIndex = BorderEdgeInfos.IndexOfByPredicate([StartGridCornerId](const FEdgeInfo& EdgeInfo)
 	{
 		return EdgeInfo.StartGridCornerId == StartGridCornerId;
 	});
 
-	return FindData;
+	return FoundIndex;
 }
 
-const FEdgeInfo* ABattleMoveArea::FindSecondEdgeInfo(const int32 StartGridCornerId) const
+const int32 ABattleMoveArea::FindSecondBorderEdgeInfo(const int32 StartGridCornerId) const
 {
 	int32 FindCount = 0;
 
-	const FEdgeInfo* FindData = BorderEdgeInfos.FindByPredicate([StartGridCornerId, &FindCount](const FEdgeInfo& EdgeInfo)
+	const int32 FoundIndex = BorderEdgeInfos.IndexOfByPredicate([StartGridCornerId, &FindCount](const FEdgeInfo& EdgeInfo)
 	{
 		if (EdgeInfo.StartGridCornerId == StartGridCornerId)
 		{
@@ -404,6 +485,6 @@ const FEdgeInfo* ABattleMoveArea::FindSecondEdgeInfo(const int32 StartGridCorner
 		return false; // 첫번째가 아니면 false 반환
 	});
 
-	return FindData;
+	return FoundIndex;
 }
 

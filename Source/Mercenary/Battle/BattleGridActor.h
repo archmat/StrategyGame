@@ -115,10 +115,10 @@ enum class EGridDirection : uint8
 // @see https://benui.ca/unreal/iterate-over-enum-tenumrange/
 ENUM_RANGE_BY_COUNT(EGridDirection, EGridDirection::Count);
 
-const int32 LeftDirection = to_underlying(EGridDirection::Left);
-const int32 TopDirection = to_underlying(EGridDirection::Top);
-const int32 RightDirection = to_underlying(EGridDirection::Right);
-const int32 BottomDirection = to_underlying(EGridDirection::Bottom);
+const int32 LEFT_DIRECTION = to_underlying(EGridDirection::Left);
+const int32 TOP_DIRECTION = to_underlying(EGridDirection::Top);
+const int32 RIGHT_DIRECTION = to_underlying(EGridDirection::Right);
+const int32 BOTTOM_DIRECTION = to_underlying(EGridDirection::Bottom);
 
 const int32 DIRECTION_TYPE_COUNT = to_underlying(EGridDirection::Count);
 
@@ -180,6 +180,7 @@ public:
 	FIntPoint GetGridCoordinateByGridCellId(const int32 GridCellId) const;
 
 	// Gets the index of the grid cell in the specified direction from the current grid cell.
+	// If the direction is invalid or the grid cell ID is invalid, it returns -1.
 	UFUNCTION(BlueprintPure, Category = "BattleGrid")
 	int32 GetArroundGridCellId(const int32 currGridCellId, const EGridDirection eDirection) const;
 

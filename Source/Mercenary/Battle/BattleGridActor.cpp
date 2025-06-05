@@ -255,21 +255,25 @@ int32 ABattleGridActor::GetArroundGridCellId(const int32 currGridCellId, const E
 	{
 		case EGridDirection::Left:
 		{
+			// Current 의 Column 이 0 이라면 Left 없음.
 			ArroundGridCellId = ((currGridCellId % GridCellSize.Y) == 0) ? -1 : currGridCellId - 1;
 			break;
 		}
 		case EGridDirection::Top:
 		{
+			// Current 의 Row 가 0 이라면 (첫번째 행의 max id 보다 작다면) Top 없음.
 			ArroundGridCellId = (currGridCellId < GridCellSize.Y) ? -1 : currGridCellId - GridCellSize.Y;
 			break;
 		}
 		case EGridDirection::Right:
 		{
+			// Current 가 Column 의 마지막이라면 Right 없음.
 			ArroundGridCellId = ((currGridCellId % GridCellSize.Y) + 1 == GridCellSize.Y) ? -1 : currGridCellId + 1;
 			break;
 		}
 		case EGridDirection::Bottom:
 		{
+			// Current 가 Row 의 마지막이라면 (마지막 행의 min id 작지 않다면) Bottom 없음.
 			ArroundGridCellId = (currGridCellId < (GridCellTotalSize - GridCellSize.Y)) ? currGridCellId + GridCellSize.Y : -1;
 			break;
 		}
