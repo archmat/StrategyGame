@@ -194,6 +194,7 @@ void ABattleMoveArea::FindGridCellForMoveArea()
 			if (false == AllVisitedFlags.IsValidIndex(ArroundGridCellId))
 			{
 				AddGridCellToBorderAreaBySlot(CurrGridCellId);
+				TRACE(Log, "Add BorderArea - Out Of Map : %d", CurrGridCellId);
 				continue;
 			}
 
@@ -203,6 +204,7 @@ void ABattleMoveArea::FindGridCellForMoveArea()
 			{
 				// 배치 불가에 의한 Border Line.
 				AddGridCellToBorderAreaBySlot(CurrGridCellId);
+				TRACE(Log, "Add BorderArea - Not Placeable : %d", CurrGridCellId);
 				continue;
 			}
 
@@ -214,6 +216,7 @@ void ABattleMoveArea::FindGridCellForMoveArea()
 			{
 				// Move Cost 에 의한 Border Line.
 				AddGridCellToBorderAreaBySlot(CurrGridCellId);
+				TRACE(Log, "Add BorderArea - Move Cost : %d", CurrGridCellId);
 				continue;
 			}
 
@@ -223,7 +226,9 @@ void ABattleMoveArea::FindGridCellForMoveArea()
 			SearchingGirdCellIds.Emplace(FMoveInfo(ArroundGridCellId, CurrMovePoint - ArroundMoveCost));
 		}
 
-		SearchingGirdCellIds.RemoveAtSwap(0, 1, false);
+		//SearchingGirdCellIds.RemoveAtSwap(0, 1, false);
+		//SearchingGirdCellIds.RemoveAtSwap(0, 1);
+		SearchingGirdCellIds.RemoveAt(0, 1, false);
 	}
 }
 
@@ -391,7 +396,7 @@ void ABattleMoveArea::AddBorderEdgeInfo(const int32 CoreGridCellId, const EGridD
 		return;
 	}
 
-	FIntPoint GridCoord = BattleGridActor->GetGridCoordinateByGridCellId(CoreGridCellId);
+	FIntPoint GridCoord = BattleGridActor->GetGridCoordinateByCellId(CoreGridCellId);
 
 	/**
 	 * Grid Corner(테두리) 와 GridCellId(테두리 안쪽) 와의 상관 관계

@@ -156,6 +156,10 @@ protected:
 
 
 public:
+	// Return the index of a grid cell via world coordinates. Grid Cell Index : 0 Based.
+	UFUNCTION(BlueprintPure, Category = "BattleGrid")
+	int32 GetGridCellIdByWorldLocation(const FVector& WorldLocation) const;
+
 	// Returns the world location of the corresponding grid Corner.
 	// Used to draw border lines (In World). Grid Corner Id is 0 Based.
 	UFUNCTION(BlueprintPure, Category = "BattleGrid")
@@ -163,21 +167,17 @@ public:
 
 	// Returns the world location of the corresponding grid cell.
 	UFUNCTION(BlueprintPure, Category = "BattleGrid")
-	FVector GetGridWorldLocationByGridcellID(const int32 GridCellId) const;
-
-	// Return the index of a grid cell via world coordinates. Grid Cell Index : 0 Based.
-	UFUNCTION(BlueprintPure, Category = "BattleGrid")
-	int32 GetGridCellIdByWorldLocation(const FVector& WorldLocation) const;
+	FVector GetGridCellWorldLocation(const int32 GridCellId) const;
 
 	// Returns the 2D center Location of the corresponding grid cell.
 	// The coordinates are zero-based On Grid
 	UFUNCTION(BlueprintPure, Category = "BattleGrid")
-	FVector2D GetGrid2DLocByGridCellId(const int32 GridCellId) const;
+	FVector2D GetGrid2DLocByCellId(const int32 GridCellId) const;
 
 	// Returns the 2D coordinates(Row, Col) of the corresponding grid cell.
 	// Most Left Top Coordinates is 0, 0, Next is 0, 1
 	UFUNCTION(BlueprintPure, Category = "BattleGrid")
-	FIntPoint GetGridCoordinateByGridCellId(const int32 GridCellId) const;
+	FIntPoint GetGridCoordinateByCellId(const int32 GridCellId) const;
 
 	// Gets the index of the grid cell in the specified direction from the current grid cell.
 	// If the direction is invalid or the grid cell ID is invalid, it returns -1.
