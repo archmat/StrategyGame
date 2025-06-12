@@ -158,7 +158,6 @@ void ABattleMoveArea::FindGridCellForMoveArea()
 
 		AllVisitedFlags.SetNumUninitialized(TotalGridCellSize);
 		FMemory::Memzero((uint8*)AllVisitedFlags.GetData(), TotalGridCellSize * sizeof(bool));
-
 	}
 
 	// Set Start Grid Cell 을 이동 영역에 추가. 방문 여부 설정. 탐색 해야할 영역에 추가.
@@ -178,23 +177,26 @@ void ABattleMoveArea::FindGridCellForMoveArea()
 		int32 CurrGridCellId = SearchingGirdCellIds[0].GridCellId;
 		float CurrMovePoint = SearchingGirdCellIds[0].MovePoint;
 
+		// Start 위치에서 부터 확장해가며 탐색해야 하기에 순서 유지 필요!!! RemoveAtSwap 사용 불가!!!
+		SearchingGirdCellIds.RemoveAt(0, 1, false);
+
 		for(EGridDirection eDirection : TEnumRange<EGridDirection>())
 		{
 			int32 ArroundGridCellId = BattleGridActor->GetArroundGridCellId(CurrGridCellId, eDirection);
 			
-			// 방문 여부 체크
-			// 이동 영역에 이미 추가된 곳이므로 경계 영역으로 추가할 필요 없음.
-			if (AllVisitedFlags[ArroundGridCellId])
+			if (AllVisitedFlags.IsValidIndex(ArroundGridCellId))
 			{
-				continue;
+				// 방문 여부 체크
+				// 이동 영역에 이미 추가된 곳이므로 경계 영역으로 추가할 필요 없음.
+				if (AllVisitedFlags[ArroundGridCellId])
+				{
+					continue;
+				}
 			}
-
-			// Out of Map Area 체크.
-			// 정상적일 경우 유효한 Grid Cell Id 가 아니라면 Map 영역 밖에 있는 것.
-			if (false == AllVisitedFlags.IsValidIndex(ArroundGridCellId))
+			else
 			{
+				// Out of Map Area 체크 - 유효한 Grid Cell Id 가 아니라면 Grid Map 영역 밖에 있는 것.
 				AddGridCellToBorderAreaBySlot(CurrGridCellId);
-				TRACE(Log, "Add BorderArea - Out Of Map : %d", CurrGridCellId);
 				continue;
 			}
 
@@ -204,7 +206,6 @@ void ABattleMoveArea::FindGridCellForMoveArea()
 			{
 				// 배치 불가에 의한 Border Line.
 				AddGridCellToBorderAreaBySlot(CurrGridCellId);
-				TRACE(Log, "Add BorderArea - Not Placeable : %d", CurrGridCellId);
 				continue;
 			}
 
@@ -216,7 +217,6 @@ void ABattleMoveArea::FindGridCellForMoveArea()
 			{
 				// Move Cost 에 의한 Border Line.
 				AddGridCellToBorderAreaBySlot(CurrGridCellId);
-				TRACE(Log, "Add BorderArea - Move Cost : %d", CurrGridCellId);
 				continue;
 			}
 
@@ -225,10 +225,6 @@ void ABattleMoveArea::FindGridCellForMoveArea()
 			AllVisitedFlags[ArroundGridCellId] = true;
 			SearchingGirdCellIds.Emplace(FMoveInfo(ArroundGridCellId, CurrMovePoint - ArroundMoveCost));
 		}
-
-		//SearchingGirdCellIds.RemoveAtSwap(0, 1, false);
-		//SearchingGirdCellIds.RemoveAtSwap(0, 1);
-		SearchingGirdCellIds.RemoveAt(0, 1, false);
 	}
 }
 

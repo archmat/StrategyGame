@@ -5,6 +5,7 @@
 
 // Engine
 #include "Components/BillboardComponent.h"
+#include <Kismet/KismetMathLibrary.h>
 
 // Project
 #include "Mercenary/Logging.h"
@@ -43,6 +44,8 @@ void ABattleGridActor::BeginPlay()
 
 void ABattleGridActor::UpdateGridCells()
 {
+	TRACE(Log, "Init GridCells");
+
 	// #todo : 차후에 Map 크기에 따라 Min, Max 변경 필요.
 	int32 ClampedX = FMath::Clamp(GridCellSize.X, 30, 120);
 	int32 ClampedY = FMath::Clamp(GridCellSize.Y, 30, 120);
@@ -63,8 +66,7 @@ void ABattleGridActor::UpdateGridCells()
 	//
 	SetupGridMesh();
 
-	// #todo : 레벨에 배치된 모든 ABattleGridBlockActor 에게서 Obstacle 정보를 얻어와 GridCells 에 반영하는 코드 추가해야 함.
-	//  BP_Grid : UpdateGridPassablity 함수 참고
+	//
 	UpdateGridBlocker();
 }
 
@@ -78,7 +80,6 @@ void ABattleGridActor::UpdateGridObstacles(const TArray<int32>& ObstacleGridCell
 		if(GridCells.IsValidIndex(CellId))
 		{
 			GridCells[CellId].SetGridCellObstacle(true);
-
 		}
 		else
 		{
@@ -87,30 +88,112 @@ void ABattleGridActor::UpdateGridObstacles(const TArray<int32>& ObstacleGridCell
 	}
 }
 
+TArray<int32> ABattleGridActor::GetGridCellIdsOfBlocker(const FVector& WorldPos, const FVector2D& RightNormal, const FVector2D& BlockSize) const
+{
+	const FVector2D HorizontalNormal = RightNormal;
+	const FVector2D VerticalNormal(-HorizontalNormal.Y, HorizontalNormal.X);	// HorizontalNormal 의 90도 회전
+
+	const FVector2D HalfBlockSize = BlockSize * -0.5;
+	const FVector2D LeftTopPos = FVector2D(WorldPos.X, WorldPos.Y) + (VerticalNormal * HalfBlockSize.X + HorizontalNormal * HalfBlockSize.Y);
+
+	double VerticalRemainder;
+	double HorizonRemainder;
+
+	int32 Row = UKismetMathLibrary::FMod(BlockSize.X, GridCellLength, VerticalRemainder) + 1;
+	int32 Col = UKismetMathLibrary::FMod(BlockSize.Y, GridCellLength, HorizonRemainder) + 1;
+
+	TArray<int32> BlockerGridCellIds;
+	double VerticalLength = 0;
+	double HorizontalLength = 0;
+	
+	for (int32 i = 0; i < Row; ++i)
+	{
+		for (int32 j = 0; j < Col; ++j)
+		{
+			FVector2D CurrBlockPos = LeftTopPos + (VerticalNormal * VerticalLength) + (HorizontalNormal * HorizontalLength);
+			int32 GridCellId = GetGridCellIdByWorldLocation(FVector(CurrBlockPos.X, CurrBlockPos.Y, WorldPos.Z));
+
+			if (GridCellId < 0)
+			{
+				TRACE(Warning, "Invalid Blocker Grid Cell Id : %d, %s", GridCellId, *CurrBlockPos.ToString());
+			}
+			else
+			{
+				BlockerGridCellIds.AddUnique(GridCellId);
+			}
+
+			// Update Horizontal Length
+			{
+				float CurColLength = HorizontalLength + GridCellLength;
+				if (CurColLength > BlockSize.Y)
+				{
+					HorizontalLength += HorizonRemainder;
+				}
+				else
+				{
+					HorizontalLength = CurColLength;
+				}
+			}
+		}
+
+		// Update Vertical Length & Init Horizontal Length
+		{
+			float CurRowLength = VerticalLength + GridCellLength;
+			if (CurRowLength > BlockSize.X)
+			{
+				VerticalLength += VerticalRemainder;
+			}
+			else
+			{
+				VerticalLength = CurRowLength;
+			}
+
+			HorizontalLength = 0;
+		}
+	}
+
+	return BlockerGridCellIds;
+}
+
+TArray<int32> ABattleGridActor::FindPathOnBattleGridAStar(const int32 StartCellId, const int32 GoalCellId, const TSet<int32>& MovableSet, bool& PathExists)
+{
+	TArray<int32> PathCellIds;
+
+
+
+	return PathCellIds;
+}
+
+int32 ABattleGridActor::GetGridSlotIdByWorldLocation(const FVector& WorldLocation) const
+{
+	int32 SlotCoreId = GetGridCellIdByWorldLocation(WorldLocation) - GridCellSize.Y - 1;
+	return SlotCoreId;
+}
+
 // 월드 로케이션에 해당하는 그리드 셀 인덱스 반환
 int32 ABattleGridActor::GetGridCellIdByWorldLocation(const FVector& WorldLocation) const
 {
-	// Find GridCell Start World 2D(X,Y) Location
+	// Find LeftTop GridCell World 2D(X,Y) Location
 	FVector gridWorldLoc = GetActorLocation();
-	FVector2D gridActorWorld2DLoc = FVector2D(gridWorldLoc.X, gridWorldLoc.Y);
-	FVector2D gridStartWorld2DLoc = FVector2D(gridActorWorld2DLoc.X + BattleGridHalfSize.X, gridActorWorld2DLoc.Y - BattleGridHalfSize.Y);
+	FVector2D gridActorWorldLoc2D = FVector2D(gridWorldLoc.X, gridWorldLoc.Y);
+	FVector2D gridLeftTopWorldLoc2D = FVector2D(gridActorWorldLoc2D.X + BattleGridHalfSize.X, gridActorWorldLoc2D.Y - BattleGridHalfSize.Y);
 
-	// GridCell 의 WorldLocation 을 gridStartWorld2DLoc 를 Base 하는 Local 2D 좌표로 변형
-	FVector2D grid2DWorldLoc = FVector2D(WorldLocation.X, WorldLocation.Y);
-	FVector2D grid2DStartBasedLoc = grid2DWorldLoc - gridStartWorld2DLoc;
-	FVector2D grid2DLoc = FVector2D(grid2DStartBasedLoc.X * -1.f, grid2DStartBasedLoc.Y);	// X 축 진행 방향 Up 에서 Bottom 으로...
+	// GridCell 의 WorldLocation 을 GridActor의 LeftTop 을 Base 하는 Local 2D 좌표로 변형
+	FVector2D gridCellWorldLoc2D = FVector2D(WorldLocation.X, WorldLocation.Y);
+	FVector2D gridLeftTopBasedLoc2D = gridCellWorldLoc2D - gridLeftTopWorldLoc2D;
+	FVector2D gridCellLoc2D = FVector2D(gridLeftTopBasedLoc2D.X * -1.0, gridLeftTopBasedLoc2D.Y);	// X 축 진행 방향을 위에서 아래로 변경
 
-	if (grid2DLoc.X < 0.f ||							// Top border
-		grid2DLoc.X > BattleGridHalfSize.X * 2.f ||		// Bottom Border
-		grid2DLoc.Y < 0.f ||							// Left Border
-		grid2DLoc.Y > BattleGridHalfSize.Y * 2.f)		// Right Border
+	if (gridCellLoc2D.X < 0.0 ||							// Top border
+		gridCellLoc2D.X > BattleGridHalfSize.X * 2.0 ||		// Bottom Border
+		gridCellLoc2D.Y < 0.0 ||							// Left Border
+		gridCellLoc2D.Y > BattleGridHalfSize.Y * 2.0)		// Right Border
 	{
-		TRACE(Warning, "Invalid World Location : %s", *grid2DWorldLoc.ToString());
+		//TRACE(Warning, "Invalid World Location : %s | Grid Loc : %s | LeftTop : %s", *gridCellWorldLoc2D.ToString(), *gridCellLoc2D.ToString(), *gridLeftTopWorldLoc2D.ToString());
 		return -1;
 	}
 
-	int32 Row = FMath::TruncToInt(grid2DLoc.X / GridCellLength);
-	int32 Column = FMath::TruncToInt(grid2DLoc.Y / GridCellLength);
+	int32 Row = FMath::TruncToInt(gridCellLoc2D.X / GridCellLength);
+	int32 Column = FMath::TruncToInt(gridCellLoc2D.Y / GridCellLength);
 	int32 retGridCellId = Row * GridCellSize.Y + Column;
 
 	return retGridCellId;
@@ -148,7 +231,7 @@ FVector ABattleGridActor::GetGridCornerWorldLocation(const int32 GridCornerId) c
 	int32 CornerCol = GridCornerId % CornerColumnSize;
 
 	FVector2D CornerLoc = FVector2D(CornerRow, CornerCol) * GridCellLength - BattleGridHalfSize;
-	FVector ConerWorldLocation = FVector(-CornerLoc.X, CornerLoc.Y, 0.f) + GetActorLocation();
+	FVector ConerWorldLocation = FVector(-CornerLoc.X, CornerLoc.Y, 0.0) + GetActorLocation();
 
 	return ConerWorldLocation;
 }
@@ -156,14 +239,18 @@ FVector ABattleGridActor::GetGridCornerWorldLocation(const int32 GridCornerId) c
 // 해당 인덱스의 월드 로케이션 반환
 FVector ABattleGridActor::GetGridCellWorldLocation(const int32 GridCellId) const
 {
-	FIntPoint GridCoord = GetGridCoordinateByCellId(GridCellId);
+	FVector2D GridLoc2D = GetGrid2DLocByCellId(GridCellId);
 
-	float halfGridCellLength = GridCellLength * 0.5f;
+	//FIntPoint GridCoord = GetGridCoordinateByCellId(GridCellId);
 
-	float locX = GridCoord.X * GridCellLength + halfGridCellLength - BattleGridHalfSize.X;
-	float locY = GridCoord.Y * GridCellLength + halfGridCellLength - BattleGridHalfSize.Y;
+	//float halfGridCellLength = GridCellLength * 0.5f;
 
-	FVector GridCellLoc(-locX, locY, 0.f);
+	//float locX = GridCoord.X * GridCellLength + halfGridCellLength - BattleGridHalfSize.X;
+	//float locY = GridCoord.Y * GridCellLength + halfGridCellLength - BattleGridHalfSize.Y;
+
+	GridLoc2D -= BattleGridHalfSize;
+
+	FVector GridCellLoc(-GridLoc2D.X, GridLoc2D.Y, 0.0);
 	FVector GridCellWorldLocation = GridCellLoc + GetActorLocation();
 
 	return GridCellWorldLocation;
@@ -230,7 +317,7 @@ int32 ABattleGridActor::GetArroundGridCellId(const int32 currGridCellId, const E
 	 *	GridCellSize.X -> Portrait (Rows)
 	 *	GridCellSize.Y -> Landscape (Columns)
 	 */
-	int32 ArroundGridCellId;
+	int32 ArroundGridCellId = -1;
 
 	switch (eDirection)
 	{
@@ -294,14 +381,19 @@ bool ABattleGridActor::IsBattleUnitPlaceable(const int32 SlotCoreGridCellId, con
 		return false;
 	}
 
+	/**
+	 * SlotCoreGridCellId 는 Slot 의 좌상단이 기준이기에 좌측 과 상단을 넘어간다는 개념 자체가 없음.
+	 * 오직 우측 과 하단만 체크하며 이 체크 역시 정상적인 Not Placeable 이기 때문에 디버깅 외엔 별도의 로그 출력 없음.
+	 */
+
 	// SlotCoreGridCellId 을 기준으로 하는 Slot 의 우측이 맵의 우측 안에 있는지 체크
 	{
 		// 이값 보다 크면 맵의 우측 영역 벗어남.
-		int32 MaxColumnBySlot = GridCellSize.Y - (BattleSlotSquareSize - 1);
+		int32 MaxColumnBySlot = GridCellSize.Y - BattleSlotSquareSize;
 		
 		if (SlotCoreGridCellId % GridCellSize.Y > MaxColumnBySlot)
 		{
-			TRACE(Warning, "Out Of Right Side Of Map Area - Slot Core Grid Cell Id : %d", SlotCoreGridCellId);
+			//TRACE(Warning, "Out Of Right Side Of Map Area - Slot Core Grid Cell Id : %d", SlotCoreGridCellId);
 			return false;
 		}
 	}
@@ -309,11 +401,11 @@ bool ABattleGridActor::IsBattleUnitPlaceable(const int32 SlotCoreGridCellId, con
 	// SlotCoreGridCellId 을 기준으로 하는 Slot 의 하단이 맵의 하단 안에 있는지 체크
 	{
 		// 이값 보다 크면 맵의 하단 영역 벗어남.
-		int32 MaxRightBottomGridCellIdBySlot = GridCellTotalSize - (BattleSlotSquareSize - 1) * GridCellSize.Y;
+		int32 MaxRightBottomGridCellIdBySlot = GridCellTotalSize - (BattleSlotSquareSize - 1) * GridCellSize.Y - 1;
 		
 		if (SlotCoreGridCellId > MaxRightBottomGridCellIdBySlot)
 		{
-			TRACE(Warning, "Out Of Bottom Side Of Map Area - Slot Core Grid Cell Id : %d", SlotCoreGridCellId);
+			//TRACE(Warning, "Out Of Bottom Side Of Map Area - Slot Core Grid Cell Id : %d", SlotCoreGridCellId);
 			return false;
 		}
 	}

@@ -79,7 +79,7 @@ public:
 protected:
 	void SetGridCellObstacle(bool bObstacle)
 	{
-		whetherObstacle = false;
+		whetherObstacle = bObstacle;
 	}
 
 	void SetGridCellMoveCost(float fMoveCost)
@@ -154,9 +154,20 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "BattleGrid")
 	void UpdateGridBlocker();
 
+	UFUNCTION(BlueprintCallable, Category = "BattleGrid")
+	TArray<int32> GetGridCellIdsOfBlocker(const FVector& WorldPos, const FVector2D& RightNormal, const FVector2D& BlockSize) const;
+
 
 public:
+	UFUNCTION(BlueprintCallable, Category = "BattleGrid")
+	TArray<int32> FindPathOnBattleGridAStar(const int32 StartCellId, const int32 GoalCellId, const TSet<int32>& MovableSet, bool& PathExists);
+
+	// 지정된 위치의 좌상단에 해당하는 BattleSlot 의 CoreId 반환
+	UFUNCTION(BlueprintPure, Category = "BattleGrid")
+	int32 GetGridSlotIdByWorldLocation(const FVector& WorldLocation) const;
+
 	// Return the index of a grid cell via world coordinates. Grid Cell Index : 0 Based.
+	// Z in WorldLocation is not used.
 	UFUNCTION(BlueprintPure, Category = "BattleGrid")
 	int32 GetGridCellIdByWorldLocation(const FVector& WorldLocation) const;
 

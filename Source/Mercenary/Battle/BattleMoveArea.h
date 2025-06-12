@@ -148,8 +148,6 @@ protected:
 	UPROPERTY(BlueprintReadOnly)
 	TArray<int32> DuplicateStartGridCornerIds;
 
-
-private:
 	/**
 	 * 기본적으로 정방향.
 	 * BattleUnit 의 크기에 기반한 GridCell 를 차지.
@@ -163,9 +161,10 @@ private:
 	 * 불곰 1.4 ~ 2.8m
 	 * 말 길이 보통 2.4m
 	 */
+	UPROPERTY(BlueprintReadOnly)
 	uint8 BattleSlotSquareSize = 3;
 
 	int32 RowSizeOfGridActor;
 	int32 ColumnSizeOfGridActor;
-
 };
+
