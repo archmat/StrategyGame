@@ -47,6 +47,7 @@ public:
 		OccupancyStatus = EGridOccupy::None;
 	}
 
+	// Grid Cell 에 배치 가능 여부
 	bool IsPlaceable() const
 	{
 		return (whetherObstacle == false) && (OccupancyStatus == EGridOccupy::None);
@@ -160,7 +161,7 @@ protected:
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "BattleGrid")
-	TArray<int32> FindPathOnBattleGridAStar(const int32 StartCellId, const int32 GoalCellId, const TSet<int32>& MovableSet, bool& PathExists);
+	TArray<int32> FindPathOnBattleGridAStar(const int32 StartCellId, const int32 GoalCellId, const int32 BattleSlotSize, const TSet<int32>& MovableCellSet, bool& PathExists);
 
 	// 지정된 위치의 좌상단에 해당하는 BattleSlot 의 CoreId 반환
 	UFUNCTION(BlueprintPure, Category = "BattleGrid")
@@ -183,12 +184,12 @@ public:
 	// Returns the 2D center Location of the corresponding grid cell.
 	// The coordinates are zero-based On Grid
 	UFUNCTION(BlueprintPure, Category = "BattleGrid")
-	FVector2D GetGrid2DLocByCellId(const int32 GridCellId) const;
+	FVector2D GetGridBasedLocation2D(const int32 GridCellId) const;
 
 	// Returns the 2D coordinates(Row, Col) of the corresponding grid cell.
 	// Most Left Top Coordinates is 0, 0, Next is 0, 1
 	UFUNCTION(BlueprintPure, Category = "BattleGrid")
-	FIntPoint GetGridCoordinateByCellId(const int32 GridCellId) const;
+	FIntPoint GetGridRowColumn(const int32 GridCellId) const;
 
 	// Gets the index of the grid cell in the specified direction from the current grid cell.
 	// If the direction is invalid or the grid cell ID is invalid, it returns -1.
@@ -258,7 +259,5 @@ protected:
 	// Battle Grid 전체 크기의 반. Centimeter 단위
 	UPROPERTY(BlueprintReadOnly)
 	FVector2D BattleGridHalfSize;
-
-	
 };
 

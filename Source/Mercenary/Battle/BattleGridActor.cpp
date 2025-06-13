@@ -155,9 +155,50 @@ TArray<int32> ABattleGridActor::GetGridCellIdsOfBlocker(const FVector& WorldPos,
 	return BlockerGridCellIds;
 }
 
-TArray<int32> ABattleGridActor::FindPathOnBattleGridAStar(const int32 StartCellId, const int32 GoalCellId, const TSet<int32>& MovableSet, bool& PathExists)
+TArray<int32> ABattleGridActor::FindPathOnBattleGridAStar(const int32 StartCellId, const int32 GoalCellId, const int32 BattleSlotSize, const TSet<int32>& MovableCellSet, bool& PathExists)
 {
 	TArray<int32> PathCellIds;
+
+	// Find Path 할 필요가 있는지 사전 체크
+	{
+		// 시작과 끝이 같다면 Path 없음
+		if (StartCellId == GoalCellId)
+		{
+			PathExists = false;
+			return PathCellIds;
+		}
+
+		// 시작과 끝의 인덱스가 유효하지 않다면 Path 없음
+		if (GridCells.IsValidIndex(StartCellId) && GridCells.IsValidIndex(GoalCellId) == false)
+		{
+			PathExists = false;
+			return PathCellIds;
+		}
+
+		// 이동가능한 Cell Set 에 Goal 이 없다면 Path 없음
+		if (MovableCellSet.Find(GoalCellId) == nullptr)
+		{
+			PathExists = false;
+			return PathCellIds;
+		}
+
+		// MovableCellSet 에 들어가려면 배치가 가능해야 하기에 이 비교는 의미 없을듯...
+		//// 시작과 끝이 배치 가능하지 않다면 Path 없음
+		//if (IsBattleUnitPlaceable(StartCellId, BattleSlotSize) && IsBattleUnitPlaceable(GoalCellId, BattleSlotSize) == false)
+		//{
+		//	PathExists = false;
+		//	return PathCellIds;
+		//}
+	}
+
+	// Find Path 시작
+
+
+
+
+	FVector2D GoalGridBasedLoc2D = GetGridBasedLocation2D(GoalCellId);
+
+
 
 
 
@@ -239,26 +280,17 @@ FVector ABattleGridActor::GetGridCornerWorldLocation(const int32 GridCornerId) c
 // 해당 인덱스의 월드 로케이션 반환
 FVector ABattleGridActor::GetGridCellWorldLocation(const int32 GridCellId) const
 {
-	FVector2D GridLoc2D = GetGrid2DLocByCellId(GridCellId);
+	FVector2D GridBasedLoc2D = GetGridBasedLocation2D(GridCellId);
+	GridBasedLoc2D -= BattleGridHalfSize;
 
-	//FIntPoint GridCoord = GetGridCoordinateByCellId(GridCellId);
-
-	//float halfGridCellLength = GridCellLength * 0.5f;
-
-	//float locX = GridCoord.X * GridCellLength + halfGridCellLength - BattleGridHalfSize.X;
-	//float locY = GridCoord.Y * GridCellLength + halfGridCellLength - BattleGridHalfSize.Y;
-
-	GridLoc2D -= BattleGridHalfSize;
-
-	FVector GridCellLoc(-GridLoc2D.X, GridLoc2D.Y, 0.0);
+	FVector GridCellLoc(-GridBasedLoc2D.X, GridBasedLoc2D.Y, 0.0);
 	FVector GridCellWorldLocation = GridCellLoc + GetActorLocation();
 
 	return GridCellWorldLocation;
 }
 
-// BP_Grid::GetCellLocalCoordinates
 // 해당 인덱스의 그리드 상의 우하단 진행 방향 2D 좌표 반환
-FVector2D ABattleGridActor::GetGrid2DLocByCellId(const int32 GridCellId) const
+FVector2D ABattleGridActor::GetGridBasedLocation2D(const int32 GridCellId) const
 {
 	/**
 	 *	0 Based Row, Column
@@ -270,53 +302,46 @@ FVector2D ABattleGridActor::GetGrid2DLocByCellId(const int32 GridCellId) const
 	 * x 축 증가 방향
 	 *
 	 * Grid 의 좌상단을 0, 0 으로 하는 2D 좌표 체계.
-	 * 월드 좌표로 직접 변환은 비추.
-	 *  > 변환 하기 위해선 BattleGridActor 의 위치에 대한 상대적인 좌표에 X 축을 뒤집어야 하기에...
+	 * GridBased 에선 월드 좌표로 직접 변환은 X 축 뒤집어야 해서 비추.
 	 */
 
-	FIntPoint GridCoord = GetGridCoordinateByCellId(GridCellId);
+	FIntPoint GridRowCol = GetGridRowColumn(GridCellId);
 
 	float halfGridCellLength = GridCellLength * 0.5f;
 
-	float coordinateX = GridCoord.X * GridCellLength + halfGridCellLength;
-	float coordinateY = GridCoord.Y * GridCellLength + halfGridCellLength;
+	float coordinateX = GridRowCol.X * GridCellLength + halfGridCellLength;
+	float coordinateY = GridRowCol.Y * GridCellLength + halfGridCellLength;
 
 	FVector2D GridCellCoordinates(coordinateX, coordinateY);
 	
 	return GridCellCoordinates;
 }
 
-// 그리드 상의 해당 인덱스 행열 반환
-FIntPoint ABattleGridActor::GetGridCoordinateByCellId(const int32 GridCellId) const
+FIntPoint ABattleGridActor::GetGridRowColumn(const int32 GridCellId) const
 {
-	if (GridCellId < 0 || !GridCells.IsValidIndex(GridCellId))
-	{
-		TRACE(Warning, "Invalid Grid Cell Id : %d", GridCellId);
-		return FIntPoint::ZeroValue;
-	}
-
 	int32 ColumnSize = GridCellSize.Y;
 	
 	// zero-based Row, Column
 	int32 Row = GridCellId / ColumnSize;
 	int32 Column = GridCellId % ColumnSize;
-	
-	FIntPoint GridCellCoordinates(Row, Column);
-	return GridCellCoordinates;
+
+	FIntPoint gridRowColumn(Row, Column);
+
+	return gridRowColumn;
 }
 
 int32 ABattleGridActor::GetArroundGridCellId(const int32 currGridCellId, const EGridDirection eDirection) const
 {
-	if(currGridCellId < 0)
+	/**
+	 *	GridCellSize.X -> Portrait (Rows)
+	 *	GridCellSize.Y -> Landscape (Columns)
+	 */
+	if (!GridCells.IsValidIndex(currGridCellId))
 	{
 		TRACE(Warning, "Invalid Grid Cell Id : %d", currGridCellId);
 		return -1;
 	}
 
-	/**
-	 *	GridCellSize.X -> Portrait (Rows)
-	 *	GridCellSize.Y -> Landscape (Columns)
-	 */
 	int32 ArroundGridCellId = -1;
 
 	switch (eDirection)

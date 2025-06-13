@@ -392,8 +392,6 @@ void ABattleMoveArea::AddBorderEdgeInfo(const int32 CoreGridCellId, const EGridD
 		return;
 	}
 
-	FIntPoint GridCoord = BattleGridActor->GetGridCoordinateByCellId(CoreGridCellId);
-
 	/**
 	 * Grid Corner(테두리) 와 GridCellId(테두리 안쪽) 와의 상관 관계
 	 * Grid Map 가로측 크기(ColumnSizeOfGridActor)가 3 이면 다음과 같음.
@@ -408,7 +406,9 @@ void ABattleMoveArea::AddBorderEdgeInfo(const int32 CoreGridCellId, const EGridD
 	 * 12 -- 13 -- 14 -- 15
 	 * 
 	 */
-	int32 LeftTopCornerId = CoreGridCellId + GridCoord.X;
+	FIntPoint gridRowCol = BattleGridActor->GetGridRowColumn(CoreGridCellId);
+
+	int32 LeftTopCornerId = CoreGridCellId + gridRowCol.X;
 	int32 RightTopCornerId = LeftTopCornerId + 1;
 	int32 LeftBottomCornerId = RightTopCornerId + ColumnSizeOfGridActor;
 	int32 RightBottomCornerId = LeftBottomCornerId + 1;
