@@ -259,5 +259,8 @@ protected:
 	// Battle Grid 전체 크기의 반. Centimeter 단위
 	UPROPERTY(BlueprintReadOnly)
 	FVector2D BattleGridHalfSize;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "BattleGrid")
+	bool DebugGrid = false;
 };
 

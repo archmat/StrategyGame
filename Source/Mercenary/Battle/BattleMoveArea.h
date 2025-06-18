@@ -128,7 +128,7 @@ protected:
 	UPROPERTY(BlueprintReadOnly)
 	float MoveDistance;
 
-	// 이동 가능한 Grid Cell Ids (Per Cell)
+	// 이동 가능한 Grid Cell Ids (Per Cell). BattleSlot 의 Core Id 가 될 수 있는 Set
 	UPROPERTY(BlueprintReadOnly)
 	TSet<int32> MovableGridCellSet;
 

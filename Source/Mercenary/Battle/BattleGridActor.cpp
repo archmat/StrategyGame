@@ -5,7 +5,8 @@
 
 // Engine
 #include "Components/BillboardComponent.h"
-#include <Kismet/KismetMathLibrary.h>
+#include "Kismet/KismetMathLibrary.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 // Project
 #include "Mercenary/Logging.h"
@@ -158,27 +159,25 @@ TArray<int32> ABattleGridActor::GetGridCellIdsOfBlocker(const FVector& WorldPos,
 TArray<int32> ABattleGridActor::FindPathOnBattleGridAStar(const int32 StartCellId, const int32 GoalCellId, const int32 BattleSlotSize, const TSet<int32>& MovableCellSet, bool& PathExists)
 {
 	TArray<int32> PathCellIds;
+	PathExists = false;
 
 	// Find Path 할 필요가 있는지 사전 체크
 	{
 		// 시작과 끝이 같다면 Path 없음
 		if (StartCellId == GoalCellId)
 		{
-			PathExists = false;
 			return PathCellIds;
 		}
 
-		// 시작과 끝의 인덱스가 유효하지 않다면 Path 없음
+		// 시작과 끝의 인덱스 둘다 유효하지 않다면 Path 없음
 		if (GridCells.IsValidIndex(StartCellId) && GridCells.IsValidIndex(GoalCellId) == false)
 		{
-			PathExists = false;
 			return PathCellIds;
 		}
 
-		// 이동가능한 Cell Set 에 Goal 이 없다면 Path 없음
+		// Goal 이 이동가능한 Cell Set 에 없다면 Path 없음
 		if (MovableCellSet.Find(GoalCellId) == nullptr)
 		{
-			PathExists = false;
 			return PathCellIds;
 		}
 
@@ -186,22 +185,187 @@ TArray<int32> ABattleGridActor::FindPathOnBattleGridAStar(const int32 StartCellI
 		//// 시작과 끝이 배치 가능하지 않다면 Path 없음
 		//if (IsBattleUnitPlaceable(StartCellId, BattleSlotSize) && IsBattleUnitPlaceable(GoalCellId, BattleSlotSize) == false)
 		//{
-		//	PathExists = false;
 		//	return PathCellIds;
 		//}
 	}
 
 	// Find Path 시작
+	FVector2D GoalLocation = GetGridBasedLocation2D(GoalCellId);
 
+	TArray<int32> CellsForVisit;
+	TArray<int32> Visited;
+	TArray<int32> CameFromCell;
+	TArray<float> NeighborDistances;
 
+	// CellsForVist 과 NeighborDistances 는 Pair
+	CellsForVisit.Emplace(StartCellId);
+	NeighborDistances.Emplace(0.0f);
+	
+	// Visited 와 CameFromCell 은 Pair
+	Visited.Emplace(StartCellId);
+	CameFromCell.Emplace(StartCellId);
 
+	int32 IndexOfMinValue = 0;
+	int32 CurrentCellId;
 
-	FVector2D GoalGridBasedLoc2D = GetGridBasedLocation2D(GoalCellId);
+	while (CellsForVisit.Num() > 0)
+	{
+		FMath::Min(NeighborDistances, &IndexOfMinValue);
 
+		CurrentCellId = CellsForVisit[IndexOfMinValue];
 
+		CellsForVisit.RemoveAt(IndexOfMinValue, 1, false);
+		NeighborDistances.RemoveAt(IndexOfMinValue, 1, false);
 
+		// 이웃하고 있는 Cell 순회
+		for (EGridDirection eDirection : TEnumRange<EGridDirection>())
+		{
+			int32 ArroundGridCellId = GetArroundGridCellId(CurrentCellId, eDirection);
 
+			if (ArroundGridCellId < 0)
+				continue;
 
+			if (MovableCellSet.Find(ArroundGridCellId) == nullptr)
+				continue;
+
+			if (Visited.Contains(ArroundGridCellId))
+				continue;
+
+			FVector2D ArroundLocation = GetGridBasedLocation2D(ArroundGridCellId);
+			float DistanceToGoal = FVector2D::Distance(ArroundLocation, GoalLocation);
+
+			CellsForVisit.Emplace(ArroundGridCellId);
+			NeighborDistances.Emplace(DistanceToGoal);
+
+			Visited.Emplace(ArroundGridCellId);
+			CameFromCell.Emplace(CurrentCellId);
+
+			if (ArroundGridCellId == GoalCellId)
+			{
+				int32 PastCellId = GoalCellId;
+
+				TArray<int32> PathToGoal;
+				PathToGoal.Emplace(PastCellId);
+				TRACE(Log, "PathToGoal Start : %d, Goal : %d", StartCellId, GoalCellId);
+				TRACE(Log, "PathToGoal Add : %d", PastCellId);
+
+				for(const int32& VisitEntry : Visited)
+				{
+					int32 PastIndex = Visited.Find(PastCellId);
+					int32 PreviousCellId = CameFromCell[PastIndex];
+
+					if (StartCellId == PreviousCellId)
+					{
+						PathToGoal.Emplace(StartCellId);
+						Algo::Reverse(PathToGoal);
+
+						// Remove Path Ladder Effect
+						{
+							bool wasAddToRemoveArray = false;
+							TArray<int32> CellIdsToRemove;
+							FVector LastDirection = FVector::ZeroVector;
+
+							int32 ToRemoveCount = PathToGoal.Num() - 2;
+
+							for (int32 i = 0; i < ToRemoveCount; ++i)
+							{
+								if (wasAddToRemoveArray)
+								{
+									wasAddToRemoveArray = false;
+									continue;
+								}
+
+								int32 CurrPathCellId = PathToGoal[i];
+								int32 NextPathCellId1 = PathToGoal[i + 1];
+								int32 NextPathCellId2 = PathToGoal[i + 2];
+
+								FVector CurrPos = GetGridCellWorldLocation(CurrPathCellId);
+								FVector NextPos1 = GetGridCellWorldLocation(NextPathCellId1);
+								FVector NextPos2 = GetGridCellWorldLocation(NextPathCellId2);
+
+								FVector CurrDir1 = CurrPos - NextPos1;
+								FVector CurrDir2 = NextPos2 - NextPos1;
+
+								CurrDir1.Normalize();
+								CurrDir2.Normalize();
+
+								//double dotValue = FGenericPlatformMath::Abs(FVector::DotProduct(CurrDir1, CurrDir2));
+								double dotValue = abs(FVector::DotProduct(CurrDir1, CurrDir2));
+
+								if (dotValue < 0.01)
+								{
+									// 서로 직각인 경우. Stair-stepping(Ladder) 이므로 Cell Id 를 제거할 대상에 추가
+									FVector unionDir = CurrDir1 + CurrDir2;
+									unionDir.Normalize();
+
+									FVector CornerCheckPos = NextPos1 + (unionDir * GridCellLength);
+									int32 CornerCheckCellId = GetGridCellIdByWorldLocation(CornerCheckPos);
+
+									//if (IsBattleUnitPlaceable(CornerCheckCellId, BattleSlotSize))
+									if(GridCells[CornerCheckCellId].IsPlaceable())
+									{
+										CellIdsToRemove.Emplace(NextPathCellId1);
+										wasAddToRemoveArray = true;
+
+										if (LastDirection.Equals(unionDir, 0.01))
+										{
+											CellIdsToRemove.Emplace(CurrPathCellId);
+										}
+										else
+										{
+											LastDirection = unionDir;
+										}
+									}
+									else
+									{
+										// 블럭 오브젝트를 끼고서는 대각선 이동없음
+										if (DebugGrid)
+										{
+											float ExtentSize = GridCellLength * 0.5f;
+											UKismetSystemLibrary::DrawDebugBox(GetWorld(), CornerCheckPos, FVector(ExtentSize, ExtentSize, 300.0f), FLinearColor::Red, FRotator::ZeroRotator, 2.f);
+										}
+									}
+								}
+								else
+								{
+									// 직각이 아닌 경우. 방향이 같다면 직선이기에 궂이 필요없는 중간에 있는 Cell Id 이므로 제거
+									if (LastDirection.Equals(CurrDir2, 0.01))
+									{
+										CellIdsToRemove.Emplace(CurrPathCellId);
+									}
+									else
+									{
+										LastDirection = CurrDir2;
+									}
+								}
+							}
+
+							// Remove Cell Id Remove cell IDs that cause stair-stepping(Ladder)
+							for (const int32& RemoveValue : CellIdsToRemove)
+							{
+								PathToGoal.RemoveSingle(RemoveValue);
+							}
+						}
+
+						// Return Find Path Array
+						PathExists = true;
+						return PathToGoal;
+					}
+					else
+					{
+						PastCellId = PreviousCellId;
+						PathToGoal.Emplace(PastCellId);
+						TRACE(Log, "PathToGoal Add : %d", PastCellId);
+					}
+				}
+
+				// Not Find Valid Path
+				return PathCellIds;
+			}
+		}
+	}
+
+	// Not Find Path
 	return PathCellIds;
 }
 
@@ -304,7 +468,6 @@ FVector2D ABattleGridActor::GetGridBasedLocation2D(const int32 GridCellId) const
 	 * Grid 의 좌상단을 0, 0 으로 하는 2D 좌표 체계.
 	 * GridBased 에선 월드 좌표로 직접 변환은 X 축 뒤집어야 해서 비추.
 	 */
-
 	FIntPoint GridRowCol = GetGridRowColumn(GridCellId);
 
 	float halfGridCellLength = GridCellLength * 0.5f;
