@@ -181,6 +181,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "BattleGrid")
 	FVector GetGridCellWorldLocation(const int32 GridCellId) const;
 
+	// Returns the world location of the corresponding grid slot.
+	UFUNCTION(BlueprintPure, Category = "BattleGrid")
+	FVector GetGridSlotWorldLocation(const int32 GridCellId, const int32 BattleSlotSize);
+
 	// Returns the 2D center Location of the corresponding grid cell.
 	// The coordinates are zero-based On Grid
 	UFUNCTION(BlueprintPure, Category = "BattleGrid")

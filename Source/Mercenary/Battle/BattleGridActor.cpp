@@ -190,6 +190,7 @@ TArray<int32> ABattleGridActor::FindPathOnBattleGridAStar(const int32 StartCellI
 	}
 
 	// Find Path 시작
+	// #ksh : 캐릭터의 동선 이기때문에 Battle Slot 의 CoreId 로 계산을 해도 Line 을 그릴땐 BattleSlot 의 가운데 사용해야 함!!!
 	FVector2D GoalLocation = GetGridBasedLocation2D(GoalCellId);
 
 	TArray<int32> CellsForVisit;
@@ -246,8 +247,8 @@ TArray<int32> ABattleGridActor::FindPathOnBattleGridAStar(const int32 StartCellI
 
 				TArray<int32> PathToGoal;
 				PathToGoal.Emplace(PastCellId);
-				TRACE(Log, "PathToGoal Start : %d, Goal : %d", StartCellId, GoalCellId);
-				TRACE(Log, "PathToGoal Add : %d", PastCellId);
+				//TRACE(Log, "PathToGoal Start : %d, Goal : %d", StartCellId, GoalCellId);
+				//TRACE(Log, "PathToGoal Add : %d", PastCellId);
 
 				for(const int32& VisitEntry : Visited)
 				{
@@ -355,7 +356,7 @@ TArray<int32> ABattleGridActor::FindPathOnBattleGridAStar(const int32 StartCellI
 					{
 						PastCellId = PreviousCellId;
 						PathToGoal.Emplace(PastCellId);
-						TRACE(Log, "PathToGoal Add : %d", PastCellId);
+						//TRACE(Log, "PathToGoal Add : %d", PastCellId);
 					}
 				}
 
@@ -451,6 +452,20 @@ FVector ABattleGridActor::GetGridCellWorldLocation(const int32 GridCellId) const
 	FVector GridCellWorldLocation = GridCellLoc + GetActorLocation();
 
 	return GridCellWorldLocation;
+}
+
+FVector ABattleGridActor::GetGridSlotWorldLocation(const int32 GridCellId, const int32 BattleSlotSize)
+{
+	FVector SlotCoreWorldLocation = GetGridCellWorldLocation(GridCellId);
+
+	if (BattleSlotSize < 1)
+		return SlotCoreWorldLocation;
+
+	double SlotScale = BattleSlotSize - 1;
+
+	FVector SlotWorldLocation = SlotCoreWorldLocation + FVector(-GridCellLength * 0.5, GridCellLength * 0.5, 0.0) * SlotScale;
+
+	return SlotWorldLocation;
 }
 
 // 해당 인덱스의 그리드 상의 우하단 진행 방향 2D 좌표 반환
