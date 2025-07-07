@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 
-#include "Mercenary/Battle/BattleGridActor.h"
+#include "Mercenary/BattleGrid/BattleGridActor.h"
 
 #include "BattleMoveArea.generated.h"
 

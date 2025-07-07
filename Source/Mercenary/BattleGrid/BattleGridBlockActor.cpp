@@ -1,7 +1,7 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "Mercenary/Battle/BattleGridBlockActor.h"
+#include "Mercenary/BattleGrid/BattleGridBlockActor.h"
 
 // Engine
 #include "Components/BillboardComponent.h"

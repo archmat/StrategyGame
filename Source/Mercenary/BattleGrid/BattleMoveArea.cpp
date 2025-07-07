@@ -1,13 +1,13 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "Mercenary/Battle/BattleMoveArea.h"
+#include "Mercenary/BattleGrid/BattleMoveArea.h"
 
 // Engine
 #include "Kismet/GameplayStatics.h"
 
 // Project
-//#include "Mercenary/Battle/BattleGridActor.h"
+//#include "Mercenary/BattleGrid/BattleGridActor.h"
 
 #include "Mercenary/Logging.h"
 
