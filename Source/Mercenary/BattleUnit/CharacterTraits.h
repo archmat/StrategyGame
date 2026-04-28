@@ -7,9 +7,9 @@
 
 
 UENUM(BlueprintType)
-enum class ETraitsType : uint8
+enum class ETraitType : uint8
 {
-	None,
+	None = 0 UMETA(Hidden),
 
 	// 대립 특성
 	Brave,			// 용감한
@@ -52,11 +52,6 @@ enum class ETraitsType : uint8
 	Merciful,		// 자비로운, 인정 많은
 
 
-
-
-
-
-
 	// 기벽 특성
 	Melancholic,	// 우울한, 침울한
 	Lunatic,		// 미친, 정신병자
@@ -68,13 +63,39 @@ enum class ETraitsType : uint8
 	Profligate,		// 방탕한, 낭비하는
 	Reclusive,		// 은둔하는, 세상을 등진
 
+	// 단계 특성
+	Intelligent,	// 지적인, 총명한
+	Quick,			// 빠른, 민첩한
+	Genius,			// 천재적인, 비상한 재능이 있는
+
+	Stupid,			// 멍청한, 바보 같은
+	Slow,			// 느린, 둔한
+	Imbecile,		// 얼간이(지적장애)
+
+	Hansome,		// Pretty // 잘생긴
+	Comely,			// 반반한
+	Beautiful,		// 아름다운
+
+	Ugly,			// 못생긴
+	Homely,			// 볼품없는
+	Hideous,		// 끔찍한, 소름끼치는
+
+	Robust,			// 튼튼한, 강건한
+	Hale,			// 건강한, 튼튼한
+	Herulean,		// Amazonian // 헤라클레스 같은, 힘이 센
+
+	Frail,			// 연약한
+	Delicate,		// 부실한
+	Feeble,			// 허약한
+
+
 	//
 	Count			UMETA(Hidden)
 };
 
 
 // @see https://benui.ca/unreal/iterate-over-enum-tenumrange/
-ENUM_RANGE_BY_COUNT(ETraitsType, ETraitsType::Count);
+ENUM_RANGE_BY_COUNT(ETraitType, ETraitType::Count);
 //ENUM_RANGE_BY_FIRST_AND_LAST(ETraitsType, ETraitsType::Gun, ETraitsType::RightFoot);
 //ENUM_RANGE_BY_FIRST_AND_LAST(ETraitsType, ETraitsType::Gun, ETraitsType::RightKnee);
 
@@ -84,12 +105,12 @@ constexpr typename std::underlying_type<E>::type to_underlying(E e) noexcept
 	return static_cast<typename std::underlying_type<E>::type>(e);
 }
 
-constexpr int32 TrackTypeHmd = to_underlying(ETrackObject::HMD);
+//constexpr int32 TrackTypeHmd = to_underlying(ETrackObject::HMD);
 
 
-USTRUCT(BlueprintType)
-struct FCharacterTraits
-{
-	GENERATED_USTRUCT_BODY()
-
-};
+//USTRUCT(BlueprintType)
+//struct FCharacterTraits
+//{
+//	GENERATED_USTRUCT_BODY()
+//
+//};
