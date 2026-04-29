@@ -8,23 +8,26 @@
 
 
 UENUM(BlueprintType, Meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor = "true"))
-enum class EDamageType : uint8
+enum class EDamageType : uint32
 {
 	None = 0 UMETA(Hidden),
 
+	//
 	Slash = 1 << 0,
 	Pierce = 1 << 1,
 	Crush = 1 << 2,
 
 	Physical = Slash | Pierce | Crush,
 
-
+	//
 	Fire = 1 << 3,
 	Ice = 1 << 4,
 	Lightning = 1 << 5,
 
 	Nature = Fire | Ice | Lightning,
 
+	//
+	Magic = 1 << 6,
 };
 ENUM_CLASS_FLAGS(EDamageType)
 
