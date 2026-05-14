@@ -7,27 +7,72 @@
 #include "BattleUnitBase.generated.h"
 
 
+/**
+ * 직접적인 데미지를 주는 형태와 연관.
+ * 무기일 경우 칼날은 Slash, 창은 Pierce, 둔기는 Crush
+ * 마법도 직접적인 형태로 데미지를 준다면 이 타입이 적용될 수 있음. (ex. 얼음 칼날은 Slash, 불의 화살은 Pierce, 대지의 충격은 Crush)
+ */
 UENUM(BlueprintType, Meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor = "true"))
-enum class EDamageType : uint32
+enum class EWeaponType : uint8
 {
 	None = 0 UMETA(Hidden),
 
 	//
-	Slash = 1 << 0,
-	Pierce = 1 << 1,
-	Crush = 1 << 2,
+	Slash	= 1 << 0,
+	Pierce	= 1 << 1,
+	Crush	= 1 << 2,
+};
+ENUM_CLASS_FLAGS(EWeaponType)
 
-	Physical = Slash | Pierce | Crush,
+/**
+ * 데미지 자체의 속성.
+ * 일반적인 무기는 Physical 데미지 타입이지만, 마법은 데미지 타입이 다양할 수 있음.
+ * 
+ * ex)
+ *  1. 강철 검 : Physical
+ *  2. 불화살 (비마법) : Fire + Pierce
+ *  3. 불화살 (마법) : Arcane + Fire + Pierce
+ *  4. 불붙이는 행위 : Fire
+ *  5. 발화 마법 : Arcane + Fire
+ *		- 발화 마법은 구현부만 있기에 형태가 없음.
+ * 
+ * 데미지는 구현부와 형태(직접적인 데미지) 로 구성.
+ * 
+ * 저항은 구현부 합연산과 형태 합연산으로 별도 계산.
+ * ex) 불화살 데미지 100 일때
+ *  Arcane 저항 10%, Fire 저항 20% 
+ *		구현부 저항으로 100 * (0.1 + 0.2) = 30 으로 100 -> 70 데미지.
+ *	방어도 100 으로인한 데미지 감소 30%, Pierce 저항 10%
+ *		형태 저항으로 70 * (0.3 + 0.1) = 28 로 인해 70 -> 42 데미지.
+ * 
+ * 구현, 형태 저항의 최대치는 95% 로 제한. 취약은 제한 없음.
+ * 
+ * 바위처럼 이미 형태가 있는 물체를 마법으로 띄어서 던지는 경우는 구현부와 형태가 완전히 별도인 상태로 마법 저항이 큰 의미가 없음.
+ * ex) 바위 던지기 마법 일때 던지는 행위 자체(마법)를 캔슬 시키지 않는다면 이미 날라가는 바위는 관성의 영향으로 Physical 데미지 취급이라 마법 저항 적용 안됨.
+ *		바위 자체를 마법으로 구현하는 경우는 Arcane + Crush 형태로 구현부와 형태가 모두 마법이기에 마법 저항 적용됨.
+ *  
+ */
+UENUM(BlueprintType, Meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor = "true"))
+enum class EDamageType : uint8
+{
+	None = 0 UMETA(Hidden),
 
-	//
-	Fire = 1 << 3,
-	Ice = 1 << 4,
-	Lightning = 1 << 5,
+	// 물질계의 물리적 데미지
+	Physical	= 1 << 0,
 
-	Nature = Fire | Ice | Lightning,
+	// 자연현상에 의한 데미지
+	Fire		= 1 << 1,
+	Ice			= 1 << 2,
+	Lighting	= 1 << 3,
 
-	//
-	Magic = 1 << 6,
+	Nature		= Fire | Ice | Lighting,
+
+	// 마법, 초자연적인 데미지
+	Divine	= 1 << 4,	// Holy, Light - 신성계열 권능, 은총
+	Abyssal = 1 << 5,	// Void, Dark - 심연계열 권능, 은총
+	Arcane = 1 << 6,	// 지적인 탐구와 공식에 기반한 주변의 마나를 조작하는 힘
+
+	Magic	= Divine | Abyssal | Arcane,
 };
 ENUM_CLASS_FLAGS(EDamageType)
 
