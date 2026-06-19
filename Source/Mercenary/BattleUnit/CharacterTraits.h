@@ -99,14 +99,6 @@ ENUM_RANGE_BY_COUNT(ETraitType, ETraitType::Count);
 //ENUM_RANGE_BY_FIRST_AND_LAST(ETraitsType, ETraitsType::Gun, ETraitsType::RightFoot);
 //ENUM_RANGE_BY_FIRST_AND_LAST(ETraitsType, ETraitsType::Gun, ETraitsType::RightKnee);
 
-template <typename E>
-constexpr typename std::underlying_type<E>::type to_underlying(E e) noexcept
-{
-	return static_cast<typename std::underlying_type<E>::type>(e);
-}
-
-//constexpr int32 TrackTypeHmd = to_underlying(ETrackObject::HMD);
-
 
 //USTRUCT(BlueprintType)
 //struct FCharacterTraits

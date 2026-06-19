@@ -8,44 +8,51 @@
 
 
 /**
- * 직접적인 데미지를 주는 형태와 연관.
- * 무기일 경우 칼날은 Slash, 창은 Pierce, 둔기는 Crush
- * 마법도 직접적인 형태로 데미지를 준다면 이 타입이 적용될 수 있음. (ex. 얼음 칼날은 Slash, 불의 화살은 Pierce, 대지의 충격은 Crush)
- */
-UENUM(BlueprintType, Meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor = "true"))
-enum class EWeaponType : uint8
-{
-	None = 0 UMETA(Hidden),
-
-	//
-	Slash	= 1 << 0,
-	Pierce	= 1 << 1,
-	Crush	= 1 << 2,
-};
-ENUM_CLASS_FLAGS(EWeaponType)
-
-/**
- * 데미지 자체의 속성.
- * 일반적인 무기는 Physical 데미지 타입이지만, 마법은 데미지 타입이 다양할 수 있음.
+ * # 데미지 자체의 속성.
  * 
+ * 
+ * # 일반 무기는 Physical 데미지 타입, 직접적인 물리 데미지를 주는 형태. 
+ *	마법도 물체를 구현하여 공격할 경우 마법적인 물리 데미지.
  * ex)
- *  1. 강철 검 : Physical
- *  2. 불화살 (비마법) : Fire + Pierce
- *  3. 불화살 (마법) : Arcane + Fire + Pierce
- *  4. 불붙이는 행위 : Fire
- *  5. 발화 마법 : Arcane + Fire
- *		- 발화 마법은 구현부만 있기에 형태가 없음.
+ *  1. 강철 검 : Slash(Physical)
+ *  2. 불화살(비마법) : Pierce(Physical) + Fire(Nature) 
+ *  3. 불화살(마법) : Arcane & Pierce(Physical) + Arcane & Fire(Nature) 
+ *  4. 불붙이기 : Fire(Nature)
+ *  5. 발화 마법 : Arcane & Fire(Nature)
+ *		- 발화 마법은 구현만 있기에 형태가 없음.
  * 
- * 데미지는 구현부와 형태(직접적인 데미지) 로 구성.
  * 
- * 저항은 구현부 합연산과 형태 합연산으로 별도 계산.
- * ex) 불화살 데미지 100 일때
- *  Arcane 저항 10%, Fire 저항 20% 
- *		구현부 저항으로 100 * (0.1 + 0.2) = 30 으로 100 -> 70 데미지.
- *	방어도 100 으로인한 데미지 감소 30%, Pierce 저항 10%
+ * # 데미지는 주 데미지(구현과 형태), 추가 데미지로 구성.
+ *  ex1) 불화살(비마법) : Pierce(Physical) + Fire(Nature) 
+ *		Pierce(Physical) + Fire(Nature) 
+ *		주 데미지 : 형태	   자연적인 불 추가 데미지
+ *  ex2) 불화살(마법) : 비전마법으로 구현한 불화살 형태
+ *		Arcane & Pierce(Physical) + Arcane & Fire(Nature)
+ *		마법으로 형태구현				마법에 의한 불 추가데미지
+ * 
+ * 
+ * # 데미지는 주 데미지, 추가 데미지 각각 계산
+ *	데미지 타입에 물리적인 형태가 있다면 모두 방어도에 의한 데미지 감소가 먼저 적용 (방어구가 직접 피격당할때, 보호막은 방어구 에 해당 안됨)
+ *	저항은 해당 데미지 타입에 해당하는 모든 저항의 합연산으로 계산. 
+ * 
+ * ex1) 발화 마법 : Arcane & Fire -> Arcane 저항 10%, Fire 저항 20% 
+ *		100 * (0.1 + 0.2) = 30 으로 100 -> 70 데미지.
+ * 
+ * ex2) 불화살(마법) : Arcane & Pierce(Physical) + Arcane & Fire(Nature) -> Arcane 저항 10%, Pierce 저항 50%, Fire 저항 20%
+ *		방어도 100 으로인한 데미지 감소 30%
+ * 
+ *		주 데미지 Arcane & Pierce(Physical)
+ *			100 * (0.3) = 30 으로 100 -> 70 데미지. : 방어구로 인한 감소
+ *			70 * (0.1 + 0.5) = 42 으로 70 -> 28 데미지 : 저항으로 인한 감소
+ * 
+ *		추가 데미지 Arcane & Fire(Nature) : 별도의 10 추가데미지
+ *			10 * (0.1 + 0.2) = 3 으로 10 -> 7 데미지 : 저항으로 인한 감소
+ * 
+ *		
+ * 
  *		형태 저항으로 70 * (0.3 + 0.1) = 28 로 인해 70 -> 42 데미지.
  * 
- * 구현, 형태 저항의 최대치는 95% 로 제한. 취약은 제한 없음.
+ * 면역이 아닌 이상 합연산된 저항은 최대치 95% 제한. 취약은 제한 없음.
  * 
  * 바위처럼 이미 형태가 있는 물체를 마법으로 띄어서 던지는 경우는 구현부와 형태가 완전히 별도인 상태로 마법 저항이 큰 의미가 없음.
  * ex) 바위 던지기 마법 일때 던지는 행위 자체(마법)를 캔슬 시키지 않는다면 이미 날라가는 바위는 관성의 영향으로 Physical 데미지 취급이라 마법 저항 적용 안됨.
@@ -57,22 +64,26 @@ enum class EDamageType : uint8
 {
 	None = 0 UMETA(Hidden),
 
-	// 물질계의 물리적 데미지
-	Physical	= 1 << 0,
+	// 물리 데미지
+	Slash = 1 << 0,		// 베기, 절단, 찢는 형태의 데미지
+	Pierce = 1 << 1,	// 찌르기, 관통 형태의 데미지
+	Crush = 1 << 2,		// 타격, 충격 형태의 데미지
 
-	// 자연현상에 의한 데미지
-	Fire		= 1 << 1,
-	Ice			= 1 << 2,
-	Lighting	= 1 << 3,
+	Physical = Slash | Pierce | Crush,
+
+	// 자연 데미지
+	Fire		= 1 << 3,
+	Ice			= 1 << 4,
+	Lighting	= 1 << 5,
 
 	Nature		= Fire | Ice | Lighting,
 
-	// 마법, 초자연적인 데미지
-	Divine	= 1 << 4,	// Holy, Light - 신성계열 권능, 은총
-	Abyssal = 1 << 5,	// Void, Dark - 심연계열 권능, 은총
-	Arcane = 1 << 6,	// 지적인 탐구와 공식에 기반한 주변의 마나를 조작하는 힘
+	//// 마법, 초자연적인 데미지
+	//Arcane	= 1 << 6,	// 지적인 탐구와 공식에 기반한 주변의 마나를 조작하는 힘
+	//Divine	= 1 << 7,	// Holy, Light - 신성계열 권능, 은총
+	//Abyssal = 1 << 8,	// Void, Dark - 심연계열 권능, 은총
 
-	Magic	= Divine | Abyssal | Arcane,
+	//Magic	= Divine | Abyssal | Arcane,
 };
 ENUM_CLASS_FLAGS(EDamageType)
 
